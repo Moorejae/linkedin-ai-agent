@@ -28,7 +28,8 @@ CRITICAL RULES FOR YOUR WRITING STYLE:
 Journal Entry:
 {journal_entry}
 """
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Using gemini-2.5-flash as gemini-1.5-flash is not available/supported on this API key
+    model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(prompt)
     content = response.text.strip()
     

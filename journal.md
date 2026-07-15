@@ -11,3 +11,4 @@ Now, whenever I push a simple summary of my progress to this developer journal, 
  
 
 
+ 
