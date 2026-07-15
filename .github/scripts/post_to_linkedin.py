@@ -28,7 +28,6 @@ CRITICAL RULES FOR YOUR WRITING STYLE:
 Journal Entry:
 {journal_entry}
 """
-    # Using gemini-2.5-flash as gemini-1.5-flash is not available/supported on this API key
     model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(prompt)
     content = response.text.strip()
@@ -47,8 +46,14 @@ def post_to_linkedin(content, token, person_urn):
         'Content-Type': 'application/json'
     }
     
+    # Ensure URN uses the modern 'urn:li:member:' format as required by the LinkedIn API
+    if not person_urn.startswith("urn:"):
+        author_urn = f"urn:li:member:{person_urn}"
+    else:
+        author_urn = person_urn
+        
     payload = {
-        "author": f"urn:li:person:{person_urn}",
+        "author": author_urn,
         "lifecycleState": "PUBLISHED",
         "specificContent": {
             "com.linkedin.ugc.ShareContent": {
