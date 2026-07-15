@@ -4,7 +4,6 @@ import requests
 import google.generativeai as genai
 
 def get_journal_content():
-    # Read the contents of journal.md
     try:
         with open('journal.md', 'r', encoding='utf-8') as f:
             return f.read().strip()
@@ -21,9 +20,10 @@ Based on the following developer journal entry, write a professional and engagin
 
 CRITICAL RULES FOR YOUR WRITING STYLE:
 1. Focus on the journey and the "why". Do not reveal confidential product ideas, raw code, or sensitive data.
-2. DO NOT use markdown symbols like *, #, $, or __ in the text.
+2. DO NOT use markdown symbols like *, $, or __ in the text (but # is allowed ONLY for hashtags).
 3. Avoid over-spacing or excessive line breaks. The write-up should flow naturally like human prose.
 4. Do not make it sound like unrefined AI work. Be authentic, humble, and technical but accessible.
+5. At the very end of the post, add 3 to 5 relevant hashtags (e.g., #BuildInPublic #SoftwareEngineering).
 
 Journal Entry:
 {journal_entry}
@@ -32,24 +32,40 @@ Journal Entry:
     response = model.generate_content(prompt)
     content = response.text.strip()
     
-    # Post-generation cleanup to ensure strict compliance with user's formatting rules
-    for char in ['*', '#', '$', '__']:
+    # Post-generation cleanup for markdown symbols (except # which we need for hashtags)
+    for char in ['*', '$', '__']:
         content = content.replace(char, '')
     
     return content.strip()
 
+def generate_and_save_image(journal_entry, api_key):
+    # Attempt to generate an image using Gemini Imagen 3
+    # Note: Requires Gemini API key to have Imagen access
+    genai.configure(api_key=api_key)
+    try:
+        prompt = f"A sleek, modern digital art illustration representing software engineering and coding. Clean minimalist style, futuristic, no text. Theme based on: {journal_entry[:200]}"
+        result = genai.generate_images(
+            prompt=prompt,
+            number_of_images=1,
+            model="imagen-3.0-generate-001",
+            aspect_ratio="16:9"
+        )
+        if result and hasattr(result, 'generated_images') and result.generated_images:
+            image_bytes = result.generated_images[0].image.image_bytes
+            return image_bytes
+    except Exception as e:
+        print(f"Image generation failed or not supported by this API key: {e}")
+    return None
+
 def get_author_urn(token):
-    # Try the userinfo endpoint (Standard for OpenID Connect apps)
     url = 'https://api.linkedin.com/v2/userinfo'
     headers = {'Authorization': f'Bearer {token}'}
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         sub = response.json().get('sub')
         if sub:
-            # 'sub' is usually just the ID, we need to format it as a URN
             return f"urn:li:person:{sub}"
             
-    # Fallback to /v2/me (Standard for legacy API products)
     url_me = 'https://api.linkedin.com/v2/me'
     response_me = requests.get(url_me, headers=headers)
     if response_me.status_code == 200:
@@ -57,12 +73,45 @@ def get_author_urn(token):
         if person_id:
             return f"urn:li:person:{person_id}"
             
-    print(f"Error fetching author URN. userinfo returned: {response.status_code}, /me returned: {response_me.status_code}")
-    print(f"userinfo: {response.text}")
-    print(f"me: {response_me.text}")
+    print("Error fetching author URN.")
     sys.exit(1)
 
-def post_to_linkedin(content, token):
+def register_and_upload_image(token, author_urn, image_bytes):
+    # 1. Register Upload
+    register_url = "https://api.linkedin.com/v2/assets?action=registerUpload"
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        "registerUploadRequest": {
+            "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
+            "owner": author_urn,
+            "serviceRelationships": [{"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}]
+        }
+    }
+    response = requests.post(register_url, headers=headers, json=payload)
+    if response.status_code != 200:
+        print(f"Failed to register image upload: {response.text}")
+        return None
+        
+    data = response.json()
+    upload_url = data['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
+    asset_urn = data['value']['asset']
+    
+    # 2. Upload Binary
+    upload_headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/octet-stream'
+    }
+    upload_response = requests.put(upload_url, headers=upload_headers, data=image_bytes)
+    if upload_response.status_code not in (200, 201):
+        print(f"Failed to upload image binary: {upload_response.text}")
+        return None
+        
+    return asset_urn
+
+def post_to_linkedin(content, token, asset_urn=None):
     author_urn = get_author_urn(token)
     print(f"Posting on behalf of: {author_urn}")
     
@@ -73,16 +122,27 @@ def post_to_linkedin(content, token):
         'Content-Type': 'application/json'
     }
     
+    share_content = {
+        "shareCommentary": {
+            "text": content
+        },
+        "shareMediaCategory": "NONE"
+    }
+    
+    if asset_urn:
+        share_content["shareMediaCategory"] = "IMAGE"
+        share_content["media"] = [
+            {
+                "status": "READY",
+                "media": asset_urn
+            }
+        ]
+    
     payload = {
         "author": author_urn,
         "lifecycleState": "PUBLISHED",
         "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {
-                    "text": content
-                },
-                "shareMediaCategory": "NONE"
-            }
+            "com.linkedin.ugc.ShareContent": share_content
         },
         "visibility": {
             "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
@@ -115,9 +175,22 @@ def main():
     print("--- POST CONTENT ---")
     print(post_content)
     print("--------------------")
-        
+    
+    print("Attempting to generate image...")
+    image_bytes = generate_and_save_image(journal_entry, gemini_key)
+    
+    asset_urn = None
+    if image_bytes:
+        print("Image generated successfully. Registering upload with LinkedIn...")
+        author_urn = get_author_urn(linkedin_token)
+        asset_urn = register_and_upload_image(linkedin_token, author_urn, image_bytes)
+        if asset_urn:
+            print(f"Image uploaded successfully. Asset URN: {asset_urn}")
+        else:
+            print("Image upload to LinkedIn failed, falling back to text-only post.")
+    
     print("Posting to LinkedIn...")
-    post_to_linkedin(post_content, linkedin_token)
+    post_to_linkedin(post_content, linkedin_token, asset_urn)
 
 if __name__ == "__main__":
     main()
