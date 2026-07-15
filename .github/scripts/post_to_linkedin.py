@@ -38,7 +38,34 @@ Journal Entry:
     
     return content.strip()
 
-def post_to_linkedin(content, token, person_urn):
+def get_author_urn(token):
+    # Try the userinfo endpoint (Standard for OpenID Connect apps)
+    url = 'https://api.linkedin.com/v2/userinfo'
+    headers = {'Authorization': f'Bearer {token}'}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        sub = response.json().get('sub')
+        if sub:
+            # 'sub' is usually just the ID, we need to format it as a URN
+            return f"urn:li:person:{sub}"
+            
+    # Fallback to /v2/me (Standard for legacy API products)
+    url_me = 'https://api.linkedin.com/v2/me'
+    response_me = requests.get(url_me, headers=headers)
+    if response_me.status_code == 200:
+        person_id = response_me.json().get('id')
+        if person_id:
+            return f"urn:li:person:{person_id}"
+            
+    print(f"Error fetching author URN. userinfo returned: {response.status_code}, /me returned: {response_me.status_code}")
+    print(f"userinfo: {response.text}")
+    print(f"me: {response_me.text}")
+    sys.exit(1)
+
+def post_to_linkedin(content, token):
+    author_urn = get_author_urn(token)
+    print(f"Posting on behalf of: {author_urn}")
+    
     url = 'https://api.linkedin.com/v2/ugcPosts'
     headers = {
         'Authorization': f'Bearer {token}',
@@ -46,12 +73,6 @@ def post_to_linkedin(content, token, person_urn):
         'Content-Type': 'application/json'
     }
     
-    # Ensure URN uses the modern 'urn:li:member:' format as required by the LinkedIn API
-    if not person_urn.startswith("urn:"):
-        author_urn = f"urn:li:member:{person_urn}"
-    else:
-        author_urn = person_urn
-        
     payload = {
         "author": author_urn,
         "lifecycleState": "PUBLISHED",
@@ -79,9 +100,8 @@ def post_to_linkedin(content, token, person_urn):
 def main():
     gemini_key = os.environ.get('GEMINI_API_KEY')
     linkedin_token = os.environ.get('LINKEDIN_ACCESS_TOKEN')
-    person_urn = os.environ.get('LINKEDIN_PERSON_URN')
     
-    if not all([gemini_key, linkedin_token, person_urn]):
+    if not all([gemini_key, linkedin_token]):
         print("Missing required environment variables (secrets).")
         sys.exit(1)
         
@@ -97,7 +117,7 @@ def main():
     print("--------------------")
         
     print("Posting to LinkedIn...")
-    post_to_linkedin(post_content, linkedin_token, person_urn)
+    post_to_linkedin(post_content, linkedin_token)
 
 if __name__ == "__main__":
     main()
