@@ -58,7 +58,7 @@ Read the full breakdown on my blog below! 👇
                     {
                         "status": "READY",
                         "description": {"text": "A deep dive into advanced server security protocols, automated lockdown, and codebase self-healing for financial applications."},
-                        "originalUrl": "https://moorejae.github.io/about-me/post-10.html",
+                        "originalUrl": "https://victormoore.online/post-10.html",
                         "title": {"text": "Architecting Enterprise-Grade Security for Next-Gen Wallets"}
                     }
                 ]
