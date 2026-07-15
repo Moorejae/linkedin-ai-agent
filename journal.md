@@ -9,3 +9,5 @@ We successfully created and deployed a centralized, serverless AI agent that aut
 
 Now, whenever I push a simple summary of my progress to this developer journal, a GitHub Actions workflow automatically triggers a Python script. This script sends the journal entry to Google Gemini, which refines it into a professional, engaging, and authentic post (strictly avoiding AI clichés, markdown symbols, and weird spacing) and publishes it directly to LinkedIn. This lets me share my building-in-public journey 24/7 without needing my laptop to be left on.
  
+
+
