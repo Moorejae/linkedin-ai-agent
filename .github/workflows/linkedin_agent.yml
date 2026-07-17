@@ -1,6 +1,9 @@
 name: AI LinkedIn Agent (Journal Summary)
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '0 7 * * *' # 8:00 AM WAT (GMT+1)
   workflow_dispatch: # Allows you to manually trigger it via GitHub UI if you want
