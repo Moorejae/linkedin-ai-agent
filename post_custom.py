@@ -29,21 +29,36 @@ def post_article(token, author_urn):
         'Content-Type': 'application/json'
     }
     
-    post_text = """Security is no longer just about building walls; it's about building traps and automated countermeasures. 🛡️
+    post_text = """Escaping the Serverless Timeout Trap: Building a $0 Enterprise AI Architecture
 
-I just published a new technical article on my portfolio detailing the enterprise-grade security architecture we are using for our next-generation web and mobile wallet applications. 
+If you've ever built a heavy LLM application and deployed it to serverless platforms, you know the struggle: the dreaded 10-second timeout kill switch. 
 
-In this article, I cover:
-✅ Cloudflare Edge Protection & Bot Mitigation
-✅ Server Hardening & SSH Isolation
-✅ Automated PM2 Intrusion Response (Lockdown)
-✅ Codebase Self-Healing via Origin Restoration
+I was recently working on a complex full-stack AI project (Prompt Architect) and ran into this exact wall with Cloudflare Edge Functions. Gemini takes 15+ seconds to process massive prompt alignments, meaning Cloudflare kept silently killing our API responses mid-thought.
 
-If you're building high-stakes infrastructure, you need to assume a breach is possible and engineer resilient systems that neutralize threats instantly. 
+Instead of paying hundreds of dollars for dedicated cloud compute, we engineered a completely free, highly distributed 3-tier architecture that completely bypasses the timeout trap and keeps data ultra-secure. 
 
-Read the full breakdown on my blog below! 👇
+Here is the exact blueprint we built:
 
-#CyberSecurity #DevOps #CloudArchitecture #SoftwareEngineering #BuildInPublic"""
+1. Source of Truth: GitHub
+Everything starts here. Our entire monorepo lives in GitHub, acting as the absolute center of gravity. Commits automatically trigger deployments to both our frontend and our backend simultaneously.
+
+2. The CDN (Frontend): Cloudflare Pages
+We kept the React/Vite UI on Cloudflare Pages to take advantage of their lightning-fast global CDN. The catch? We decoupled the frontend routing, pointing our API fetch requests away from Cloudflare's edge functions and over to our new heavy-lifting backend.
+
+3. The Compute Engine (Backend): Hugging Face Spaces
+This is the radical part. We deployed our Node.js/Express API to a Hugging Face Docker Space. Why? Because Hugging Face generously provides 16GB of RAM and 2 vCPUs completely for free. There are no strict 10-second HTTP timeouts here. It is a powerhouse designed specifically for heavy AI workloads. 
+
+4. The Secure Vault (Database): Oracle Cloud VPS
+Hugging Face Spaces are public, acting like an open "house blueprint." To protect user data, we deployed an Oracle Cloud Free Tier VPS strictly for database hosting. We used the Hugging Face Secrets Repo to securely store the database connection strings. Anyone can look at our public compute source code, but no one can touch our Oracle data vault.
+
+The Ultimate Hack: The Always-On CRON
+The only downside to Hugging Face Spaces is that they go to sleep after 48 hours of inactivity. To bypass this, we wrote a tiny CRON job script on our Oracle server that sends an HTTP ping to our Hugging Face Space every 24 hours. The result? Our massive 16GB compute instance never realizes we are inactive, so it stays awake forever.
+
+We effectively built a scalable, enterprise-grade, distributed AI microservice architecture... for $0/month. 
+
+Has anyone else experimented with Hugging Face Spaces for general Express/Node APIs? I'd love to hear how you are bypassing serverless limitations!
+
+#BuildInPublic #AIArchitecture #HuggingFace #Cloudflare #OracleCloud #WebDevelopment #SoftwareEngineering #TechHacks"""
 
     payload = {
         "author": author_urn,
@@ -53,15 +68,7 @@ Read the full breakdown on my blog below! 👇
                 "shareCommentary": {
                     "text": post_text
                 },
-                "shareMediaCategory": "ARTICLE",
-                "media": [
-                    {
-                        "status": "READY",
-                        "description": {"text": "A deep dive into advanced server security protocols, automated lockdown, and codebase self-healing for financial applications."},
-                        "originalUrl": "https://victormoore.online/post-10.html",
-                        "title": {"text": "Architecting Enterprise-Grade Security for Next-Gen Wallets"}
-                    }
-                ]
+                "shareMediaCategory": "NONE"
             }
         },
         "visibility": {
