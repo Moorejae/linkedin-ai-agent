@@ -21,7 +21,49 @@ def get_author_urn(token):
     print("Error fetching author URN.")
     sys.exit(1)
 
-def post_article(token, author_urn):
+def register_and_upload_image(token, author_urn, image_path):
+    if not os.path.exists(image_path):
+        print(f"Image not found at path: {image_path}")
+        return None
+
+    with open(image_path, 'rb') as f:
+        image_bytes = f.read()
+
+    # 1. Register Upload
+    register_url = "https://api.linkedin.com/v2/assets?action=registerUpload"
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        "registerUploadRequest": {
+            "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
+            "owner": author_urn,
+            "serviceRelationships": [{"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}]
+        }
+    }
+    response = requests.post(register_url, headers=headers, json=payload)
+    if response.status_code != 200:
+        print(f"Failed to register image upload for {image_path}: {response.text}")
+        return None
+        
+    data = response.json()
+    upload_url = data['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
+    asset_urn = data['value']['asset']
+    
+    # 2. Upload Binary
+    upload_headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/octet-stream'
+    }
+    upload_response = requests.put(upload_url, headers=upload_headers, data=image_bytes)
+    if upload_response.status_code not in (200, 201):
+        print(f"Failed to upload image binary for {image_path}: {upload_response.text}")
+        return None
+        
+    return asset_urn
+
+def post_article(token, author_urn, asset_urns):
     url = 'https://api.linkedin.com/v2/ugcPosts'
     headers = {
         'Authorization': f'Bearer {token}',
@@ -29,47 +71,56 @@ def post_article(token, author_urn):
         'Content-Type': 'application/json'
     }
     
-    post_text = """Escaping the Serverless Timeout Trap: Building a $0 Enterprise AI Architecture
+    post_text = """Decoupling Context: Building Eyeno (A Self-Training AI Second Brain & Prompt Architect)
 
-If you've ever built a heavy LLM application and deployed it to serverless platforms, you know the struggle: the dreaded 10-second timeout kill switch. 
+As engineers, we fight a constant battle with LLM session amnesia. Every time you start a new prompt session, the AI forgets everything about your unique architecture, strict code quality principles, and security boundaries.
 
-I was recently working on a complex full-stack AI project (Prompt Architect) and ran into this exact wall with Cloudflare Edge Functions. Gemini takes 15+ seconds to process massive prompt alignments, meaning Cloudflare kept silently killing our API responses mid-thought.
+To solve this, I designed and built Eyeno—a self-expanding cognitive layer for prompt engineering. 
 
-Instead of paying hundreds of dollars for dedicated cloud compute, we engineered a completely free, highly distributed 3-tier architecture that completely bypasses the timeout trap and keeps data ultra-secure. 
+Here is the exact architecture:
 
-Here is the exact blueprint we built:
+1. The Gateway (Prompt Architect):
+An interactive workspace that takes raw, vague drafts and diagnoses them against key parameters (persona, variables, objectives, delimiters). It aligns parameters via interactive Q&A and refines them into masterpiece prompts.
 
-1. Source of Truth: GitHub
-Everything starts here. Our entire monorepo lives in GitHub, acting as the absolute center of gravity. Commits automatically trigger deployments to both our frontend and our backend simultaneously.
+2. The Memory (Eyeno):
+A live Obsidian Markdown knowledge base hosted on GitHub. It holds my exact mental models:
+- [[Analytic_Workflow]] - Reverse-engineering from target end states.
+- [[Creative_Tissue_Layer]] - Cross-discipline analogies (drawing security principles from strategy games).
+- [[Epistemic_Logs]] - Actively tracking failures to build mastery.
+- [[Anti-Data_Boundaries]] - Refusing strict guardrails to analyze and learn from malicious systems.
+Every query triggers a parallel semantic check that merges these private parameters directly into the LLM output.
 
-2. The CDN (Frontend): Cloudflare Pages
-We kept the React/Vite UI on Cloudflare Pages to take advantage of their lightning-fast global CDN. The catch? We decoupled the frontend routing, pointing our API fetch requests away from Cloudflare's edge functions and over to our new heavy-lifting backend.
+3. The Continuous Learning Loop (Self-Training):
+This is the game-changer. When a prompt is generated, the backend triggers an async background distillation model. It reverse-engineers the successful prompt, extracts reusable patterns, formatting constraints, and domain wikilinks, and commits them as a new Obsidian node back to GitHub.
 
-3. The Compute Engine (Backend): Hugging Face Spaces
-This is the radical part. We deployed our Node.js/Express API to a Hugging Face Docker Space. Why? Because Hugging Face generously provides 16GB of RAM and 2 vCPUs completely for free. There are no strict 10-second HTTP timeouts here. It is a powerhouse designed specifically for heavy AI workloads. 
+The system now automatically trains itself on my daily workflows, for free, without manual file uploads.
 
-4. The Secure Vault (Database): Oracle Cloud VPS
-Hugging Face Spaces are public, acting like an open "house blueprint." To protect user data, we deployed an Oracle Cloud Free Tier VPS strictly for database hosting. We used the Hugging Face Secrets Repo to securely store the database connection strings. Anyone can look at our public compute source code, but no one can touch our Oracle data vault.
+Check out the full story and implementation details on my technical blog (link in comments/bio)! 
 
-The Ultimate Hack: The Always-On CRON
-The only downside to Hugging Face Spaces is that they go to sleep after 48 hours of inactivity. To bypass this, we wrote a tiny CRON job script on our Oracle server that sends an HTTP ping to our Hugging Face Space every 24 hours. The result? Our massive 16GB compute instance never realizes we are inactive, so it stays awake forever.
+#BuildInPublic #AISecondBrain #PromptEngineering #GCP #SystemsArchitecture #Obsidian #WebDevelopment"""
 
-We effectively built a scalable, enterprise-grade, distributed AI microservice architecture... for $0/month. 
+    share_content = {
+        "shareCommentary": {
+            "text": post_text
+        },
+        "shareMediaCategory": "NONE"
+    }
 
-Has anyone else experimented with Hugging Face Spaces for general Express/Node APIs? I'd love to hear how you are bypassing serverless limitations!
-
-#BuildInPublic #AIArchitecture #HuggingFace #Cloudflare #OracleCloud #WebDevelopment #SoftwareEngineering #TechHacks"""
+    if asset_urns:
+        share_content["shareMediaCategory"] = "IMAGE"
+        share_content["media"] = [
+            {
+                "status": "READY",
+                "media": urn,
+                "title": { "text": f"Asset {i+1}" }
+            } for i, urn in enumerate(asset_urns)
+        ]
 
     payload = {
         "author": author_urn,
         "lifecycleState": "PUBLISHED",
         "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {
-                    "text": post_text
-                },
-                "shareMediaCategory": "NONE"
-            }
+            "com.linkedin.ugc.ShareContent": share_content
         },
         "visibility": {
             "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
@@ -79,7 +130,7 @@ Has anyone else experimented with Hugging Face Spaces for general Express/Node A
     print("Posting article to LinkedIn...")
     response = requests.post(url, headers=headers, json=payload)
     if response.status_code == 201:
-        print("Successfully posted to LinkedIn with Article preview!")
+        print("Successfully posted to LinkedIn with Article preview and images!")
     else:
         print(f"Failed to post. Status: {response.status_code}")
         print(response.text)
@@ -92,7 +143,18 @@ def main():
         sys.exit(1)
         
     author_urn = get_author_urn(linkedin_token)
-    post_article(linkedin_token, author_urn)
+    
+    # Upload images
+    asset_urns = []
+    for img in ["eyeno-graph.png", "prompt-architect-ui.png"]:
+        if os.path.exists(img):
+            print(f"Uploading image: {img}...")
+            urn = register_and_upload_image(linkedin_token, author_urn, img)
+            if urn:
+                print(f"Uploaded successfully URN: {urn}")
+                asset_urns.append(urn)
+                
+    post_article(linkedin_token, author_urn, asset_urns)
 
 if __name__ == "__main__":
     main()
