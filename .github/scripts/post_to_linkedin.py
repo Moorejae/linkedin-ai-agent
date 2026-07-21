@@ -18,6 +18,11 @@ def generate_post(journal_entry, api_key):
 You are an expert engineer sharing a 'building in public' update on LinkedIn.
 Based on the following developer journal entry, write a professional and engaging LinkedIn post summarizing what was built and WHY it was built.
 
+Here is the exact Blueprint you MUST follow for the post:
+- Tone: Authentic, Humanized, Story-driven, Humorous (with light Nigerian tech slangs like 'Omo', 'wahala', 'sapa', 'no cap').
+- Structure: Start with a massive hook to grab attention. Tell a story about the struggle of building it. Include a "Fun Fact" related to the tech. End with an engaging Call to Action.
+- DO NOT use generic meta-labels in the output like "Hook:", "Content Draft:", or "Fun Fact:". The text must flow naturally like a real human wrote it.
+
 CRITICAL RULES FOR YOUR WRITING STYLE:
 1. Focus on the journey and the "why". Do not reveal confidential product ideas, raw code, or sensitive data.
 2. DO NOT use markdown symbols like *, $, or __ in the text (but # is allowed ONLY for hashtags).
