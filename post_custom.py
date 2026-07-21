@@ -63,41 +63,13 @@ def register_and_upload_image(token, author_urn, image_path):
         
     return asset_urn
 
-def post_article(token, author_urn, asset_urns):
+def post_article(token, author_urn, asset_urns, post_text):
     url = 'https://api.linkedin.com/v2/ugcPosts'
     headers = {
         'Authorization': f'Bearer {token}',
         'X-Restli-Protocol-Version': '2.0.0',
         'Content-Type': 'application/json'
     }
-    
-    post_text = """Decoupling Context: Building Eyeno (A Self-Training AI Second Brain & Prompt Architect)
-
-As engineers, we fight a constant battle with LLM session amnesia. Every time you start a new prompt session, the AI forgets everything about your unique architecture, strict code quality principles, and security boundaries.
-
-To solve this, I designed and built Eyeno—a self-expanding cognitive layer for prompt engineering. 
-
-Here is the exact architecture:
-
-1. The Gateway (Prompt Architect):
-An interactive workspace that takes raw, vague drafts and diagnoses them against key parameters (persona, variables, objectives, delimiters). It aligns parameters via interactive Q&A and refines them into masterpiece prompts.
-
-2. The Memory (Eyeno):
-A live Obsidian Markdown knowledge base hosted on GitHub. It holds my exact mental models:
-- [[Analytic_Workflow]] - Reverse-engineering from target end states.
-- [[Creative_Tissue_Layer]] - Cross-discipline analogies (drawing security principles from strategy games).
-- [[Epistemic_Logs]] - Actively tracking failures to build mastery.
-- [[Anti-Data_Boundaries]] - Refusing strict guardrails to analyze and learn from malicious systems.
-Every query triggers a parallel semantic check that merges these private parameters directly into the LLM output.
-
-3. The Continuous Learning Loop (Self-Training):
-This is the game-changer. When a prompt is generated, the backend triggers an async background distillation model. It reverse-engineers the successful prompt, extracts reusable patterns, formatting constraints, and domain wikilinks, and commits them as a new Obsidian node back to GitHub.
-
-The system now automatically trains itself on my daily workflows, for free, without manual file uploads.
-
-Check out the full story and implementation details on my technical blog (link in comments/bio)! 
-
-#BuildInPublic #AISecondBrain #PromptEngineering #GCP #SystemsArchitecture #Obsidian #WebDevelopment"""
 
     share_content = {
         "shareCommentary": {
@@ -144,17 +116,28 @@ def main():
         
     author_urn = get_author_urn(linkedin_token)
     
-    # Upload images
-    asset_urns = []
-    for img in ["eyeno-graph.png", "prompt-architect-ui.png"]:
-        if os.path.exists(img):
-            print(f"Uploading image: {img}...")
-            urn = register_and_upload_image(linkedin_token, author_urn, img)
-            if urn:
-                print(f"Uploaded successfully URN: {urn}")
-                asset_urns.append(urn)
+    import time
+    
+    if os.path.exists('post.md'):
+        with open('post.md', 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Split by markdown headers or sections if separated by ---
+        sections = [s.strip() for s in content.split('---') if s.strip()]
+        
+        for i, post_text in enumerate(sections):
+            # LinkedIn limit is ~3000 chars, so ensure we don't crash
+            if len(post_text) > 2900:
+                post_text = post_text[:2900] + "..."
                 
-    post_article(linkedin_token, author_urn, asset_urns)
+            print(f"Posting section {i+1}/{len(sections)}...")
+            post_article(linkedin_token, author_urn, [], post_text)
+            
+            if i < len(sections) - 1:
+                print("Waiting 10 seconds before next post to avoid rate limits...")
+                time.sleep(10)
+    else:
+        print("No post.md file found.")
 
 if __name__ == "__main__":
     main()
