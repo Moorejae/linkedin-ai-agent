@@ -16,19 +16,19 @@ def generate_post(journal_entry, api_key):
     
     prompt = f"""
 You are an expert engineer sharing a 'building in public' update on LinkedIn.
-Based on the following developer journal entry, write a professional and engaging LinkedIn post summarizing what was built and WHY it was built.
+Based on the following developer journal entry, write ONE single, professional, and engaging LinkedIn post summarizing what was built and WHY it was built.
 
 Here is the exact Blueprint you MUST follow for the post:
 - Tone: Authentic, Humanized, Story-driven, Humorous (with light Nigerian tech slangs like 'Omo', 'wahala', 'sapa', 'no cap').
 - Structure: Start with a massive hook to grab attention. Tell a story about the struggle of building it. Include a "Fun Fact" related to the tech. End with an engaging Call to Action.
-- DO NOT use generic meta-labels in the output like "Hook:", "Content Draft:", or "Fun Fact:". The text must flow naturally like a real human wrote it.
 
-CRITICAL RULES FOR YOUR WRITING STYLE:
-1. Focus on the journey and the "why". Do not reveal confidential product ideas, raw code, or sensitive data.
-2. DO NOT use markdown symbols like *, $, or __ in the text (but # is allowed ONLY for hashtags).
-3. Avoid over-spacing or excessive line breaks. The write-up should flow naturally like human prose.
-4. Do not make it sound like unrefined AI work. Be authentic, humble, and technical but accessible.
-5. At the very end of the post, add 3 to 5 relevant hashtags (e.g., #BuildInPublic #SoftwareEngineering).
+CRITICAL RULES FOR YOUR WRITING STYLE (FAILING THESE IS UNACCEPTABLE):
+1. NEVER output meta-labels. Do NOT write "Hook:", "Content Draft:", "Context Draft:", "Media:", or "Hashtags:". Just write the natural prose.
+2. DO NOT use any markdown symbols like *, $, or __.
+3. DO NOT use markdown headers (e.g., no # or ## or ### before words). The ONLY time you may use the # symbol is at the very bottom for your hashtags.
+4. Focus on the journey and the "why".
+5. Avoid over-spacing or excessive line breaks. The write-up should flow naturally like human prose.
+6. At the very end of the post, add 3 to 5 relevant hashtags (e.g., #BuildInPublic #SoftwareEngineering).
 
 Journal Entry:
 {journal_entry}
@@ -37,9 +37,16 @@ Journal Entry:
     response = model.generate_content(prompt)
     content = response.text.strip()
     
-    # Post-generation cleanup for markdown symbols (except # which we need for hashtags)
+    import re
+    # Strip markdown symbols
     for char in ['*', '$', '__']:
         content = content.replace(char, '')
+    
+    # Strip any lines that start with # (headers), but keep hashtags
+    content = re.sub(r'(?m)^#+\s+.*$', '', content)
+    
+    # Strip double spacing
+    content = re.sub(r'\n{3,}', '\n\n', content)
     
     return content.strip()
 
